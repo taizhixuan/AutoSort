@@ -1,0 +1,141 @@
+const chokidar = require('chokidar');
+const path = require('path');
+
+class FileWatcher {
+  constructor(logger, options = {}) {
+    this.logger = logger;
+    this.watcher = null;
+    this.watchDir = options.watchDir || '';
+    this.ignorePatterns = options.ignorePatterns || [];
+    this.onFileAdded = options.onFileAdded || (() => {});
+    this.onError = options.onError || (() => {});
+    this.isReady = false;
+    this.pendingFiles = new Set();
+    this.debounceTimers = new Map();
+    this.debounceDelay = options.debounceDelay || 500;
+  }
+
+  async start(watchDir) {
+    if (watchDir) {
+      this.watchDir = watchDir;
+    }
+
+    if (!this.watchDir) {
+      throw new Error('Watch directory is required');
+    }
+
+    const ignorePatterns = [
+      /(^|[\\/])\./,
+      ...this.ignorePatterns.map(p => new RegExp(p)),
+      /\.part$/,
+      /\.crdownload$/,
+      /\.download$/,
+      /\.tmp$/,
+      /~$/
+    ];
+
+    this.logger.debug(`Starting watcher on: ${this.watchDir}`);
+    this.logger.debug(`Ignore patterns: ${ignorePatterns.length} patterns`);
+
+    this.watcher = chokidar.watch(this.watchDir, {
+      persistent: true,
+      ignoreInitial: false,
+      depth: 0,
+      awaitWriteFinish: {
+        stabilityThreshold: 1000,
+        pollInterval: 100
+      },
+      ignored: ignorePatterns,
+      usePolling: process.platform === 'win32',
+      interval: 100,
+      binaryInterval: 300
+    });
+
+    this._setupEventHandlers();
+
+    await new Promise((resolve, reject) => {
+      this.watcher.on('ready', () => {
+        this.isReady = true;
+        this.logger.debug('Watcher is ready and scanning');
+        resolve();
+      });
+
+      this.watcher.on('error', (error) => {
+        this.logger.error('Watcher error:', error);
+        reject(error);
+      });
+    });
+
+    return this;
+  }
+
+  _setupEventHandlers() {
+    this.watcher
+      .on('add', (filePath) => this._handleAdd(filePath))
+      .on('error', (error) => this._handleError(error))
+      .on('raw', (event, filePath, details) => {
+        this.logger.debug(`Raw event: ${event}`, { filePath, details });
+      });
+  }
+
+  _handleAdd(filePath) {
+    const ext = path.extname(filePath).toLowerCase();
+    this.logger.debug(`File detected: ${path.basename(filePath)} (${ext || 'no extension'})`);
+
+    if (this.debounceTimers.has(filePath)) {
+      clearTimeout(this.debounceTimers.get(filePath));
+    }
+
+    const timer = setTimeout(async () => {
+      this.debounceTimers.delete(filePath);
+      this.pendingFiles.add(filePath);
+
+      try {
+        await this.onFileAdded(filePath);
+      } catch (error) {
+        await this._handleError(error);
+      } finally {
+        this.pendingFiles.delete(filePath);
+      }
+    }, this.debounceDelay);
+
+    this.debounceTimers.set(filePath, timer);
+  }
+
+  async _handleError(error) {
+    await this.logger.error('Watcher error:', error.message);
+    this.onError(error);
+  }
+
+  async stop() {
+    if (this.watcher) {
+      this.logger.debug('Stopping watcher...');
+      
+      for (const timer of this.debounceTimers.values()) {
+        clearTimeout(timer);
+      }
+      this.debounceTimers.clear();
+      this.pendingFiles.clear();
+
+      await this.watcher.close();
+      this.watcher = null;
+      this.isReady = false;
+      await this.logger.debug('Watcher stopped');
+    }
+  }
+
+  isWatching() {
+    return this.watcher !== null && this.isReady;
+  }
+
+  getWatchDir() {
+    return this.watchDir;
+  }
+
+  async getWatchedFiles() {
+    if (!this.watcher) return [];
+    return await this.watcher.watched();
+  }
+}
+
+module.exports = FileWatcher;

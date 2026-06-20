@@ -1,0 +1,13 @@
+{
+  "watchDir": "C:/Users/YourUsername/Downloads",
+  "rules": {},
+  "unsortedFolder": "Unsorted",
+  "ignorePatterns": [
+    "^\\.DS_Store$",
+    "^Thumbs\\.db$"
+  ],
+  "retryAttempts": 3,
+  "retryDelay": 1000,
+  "logFile": null,
+  "verbose": false
+}
