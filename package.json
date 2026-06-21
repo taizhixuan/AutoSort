@@ -1,6 +1,6 @@
 {
   "name": "@taizhixuan/autosort",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Smart Downloads Organizer - automatically organize the files in any folder by type, name, size, or age",
   "main": "src/index.js",
   "bin": {
