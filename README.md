@@ -2,7 +2,8 @@
 
 <div align="center">
 
-![AutoSort Banner](https://img.shields.io/badge/AutoSort-v1.0.0-cyan?style=for-the-badge)
+![AutoSort Banner](https://img.shields.io/badge/AutoSort-v1.0.1-cyan?style=for-the-badge)
+![npm](https://img.shields.io/npm/v/@taizhixuan/autosort?style=for-the-badge)
 ![Node.js](https://img.shields.io/badge/Node.js-18+-green?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)
 
@@ -35,11 +36,22 @@ AutoSort is a digital housekeeper for your file system. It works two ways: run `
 - Node.js 18.0.0 or higher
 - npm (comes with Node.js)
 
-### Quick Install
+### Install from npm (recommended)
 
 ```bash
-# Clone or download the project
-cd autosort
+# Install globally — gives you the `autosort` command everywhere
+npm install -g @taizhixuan/autosort
+
+# Or run it once without installing
+npx @taizhixuan/autosort organize --dry-run
+```
+
+### Install from source
+
+```bash
+# Clone the project
+git clone https://github.com/taizhixuan/AutoSort.git
+cd AutoSort
 
 # Install dependencies
 npm install

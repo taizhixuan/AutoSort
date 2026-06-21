@@ -46,7 +46,7 @@ async function prepare(autoSort, options) {
 program
   .name('autosort')
   .description('Smart Downloads Organizer - Automatically organize your files')
-  .version('1.0.0');
+  .version(require('../package.json').version);
 
 program
   .command('start')

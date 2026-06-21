@@ -1,6 +1,7 @@
 const fs = require('fs').promises;
 const path = require('path');
 const chalk = require('chalk');
+const { version } = require('../../package.json');
 
 class Logger {
   constructor(options = {}) {
@@ -111,7 +112,7 @@ class Logger {
   banner() {
     console.log(`
 ${chalk.cyan('╔═══════════════════════════════════════════════╗')}
-${chalk.cyan('║')}  ${chalk.bold.white('AutoSort')} ${chalk.gray('v1.0.0')} ${chalk.cyan('                      ║')}
+${chalk.cyan('║')}  ${chalk.bold.white('AutoSort')} ${chalk.gray('v' + version)} ${chalk.cyan('                      ║')}
 ${chalk.cyan('║')}  ${chalk.white('Smart Downloads Organizer')}              ${chalk.cyan('║')}
 ${chalk.cyan('╚═══════════════════════════════════════════════╝')}
     `);
