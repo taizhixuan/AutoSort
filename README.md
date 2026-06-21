@@ -1,5 +1,8 @@
 # AutoSort
 
+[![npm](https://img.shields.io/npm/v/@taizhixuan/autosort)](https://www.npmjs.com/package/@taizhixuan/autosort)
+[![license](https://img.shields.io/npm/l/@taizhixuan/autosort)](LICENSE)
+
 A small command-line tool that sorts files into folders by type (or by name, size, or age). Run it once to clean up a messy folder, or leave it running to sort new files as they arrive.
 
 ## Install
