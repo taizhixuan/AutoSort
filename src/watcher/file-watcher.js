@@ -1,5 +1,6 @@
 const chokidar = require('chokidar');
 const path = require('path');
+const { matchPattern } = require('../utils/pattern');
 
 class FileWatcher {
   constructor(logger, options = {}) {
@@ -15,6 +16,26 @@ class FileWatcher {
     this.debounceDelay = options.debounceDelay || 500;
   }
 
+  /**
+   * Decide whether chokidar should ignore a path. User patterns are matched as
+   * GLOBS against the file's basename — the same semantics as DirectoryScanner,
+   * via the shared utils/pattern matcher. (Previously these were fed to
+   * `new RegExp(p)`, which crashed on glob patterns like `*.tmp`.)
+   *
+   * @param {string} filePath
+   * @returns {boolean}
+   */
+  _isIgnored(filePath) {
+    const base = path.basename(filePath);
+
+    // Hidden files and in-progress download/temp files are always ignored.
+    if (base.startsWith('.')) return true;
+    if (/\.(part|crdownload|download|tmp)$/i.test(base) || base.endsWith('~')) return true;
+
+    // User-supplied glob patterns (safe: matchPattern never throws).
+    return this.ignorePatterns.some((p) => matchPattern(base, p, 'glob'));
+  }
+
   async start(watchDir) {
     if (watchDir) {
       this.watchDir = watchDir;
@@ -24,18 +45,8 @@ class FileWatcher {
       throw new Error('Watch directory is required');
     }
 
-    const ignorePatterns = [
-      /(^|[\\/])\./,
-      ...this.ignorePatterns.map((p) => new RegExp(p)),
-      /\.part$/,
-      /\.crdownload$/,
-      /\.download$/,
-      /\.tmp$/,
-      /~$/
-    ];
-
     this.logger.debug(`Starting watcher on: ${this.watchDir}`);
-    this.logger.debug(`Ignore patterns: ${ignorePatterns.length} patterns`);
+    this.logger.debug(`Ignore patterns: ${this.ignorePatterns.length} user pattern(s)`);
 
     this.watcher = chokidar.watch(this.watchDir, {
       persistent: true,
@@ -45,7 +56,7 @@ class FileWatcher {
         stabilityThreshold: 1000,
         pollInterval: 100
       },
-      ignored: ignorePatterns,
+      ignored: (filePath) => this._isIgnored(filePath),
       usePolling: process.platform === 'win32',
       interval: 100,
       binaryInterval: 300

@@ -15,6 +15,7 @@ const { scan, managedFoldersFrom } = require('../src/scanner/directory-scanner')
 const HistoryStore = require('../src/history/history-store');
 const FileSorter = require('../src/sorter/file-sorter');
 const FileMover = require('../src/mover/file-mover');
+const FileWatcher = require('../src/watcher/file-watcher');
 const AutoSort = require('../src/index');
 
 const mockLogger = () => ({
@@ -186,6 +187,31 @@ describe('FileMover dry-run', () => {
     } finally {
       await fs.rm(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe('FileWatcher ignore patterns', () => {
+  test('matches user patterns as globs against the basename', () => {
+    const w = new FileWatcher(mockLogger(), { ignorePatterns: ['*.tmp', 'draft-*'] });
+
+    assert.strictEqual(w._isIgnored('/dl/a.tmp'), true); // glob *.tmp
+    assert.strictEqual(w._isIgnored('/dl/draft-1.txt'), true); // glob draft-*
+    assert.strictEqual(w._isIgnored('/dl/report.pdf'), false); // not ignored
+  });
+
+  test('always ignores hidden and in-progress files', () => {
+    const w = new FileWatcher(mockLogger(), { ignorePatterns: [] });
+
+    assert.strictEqual(w._isIgnored('/dl/.DS_Store'), true);
+    assert.strictEqual(w._isIgnored('/dl/movie.crdownload'), true);
+    assert.strictEqual(w._isIgnored('/dl/file.part'), true);
+    assert.strictEqual(w._isIgnored('/dl/backup~'), true);
+    assert.strictEqual(w._isIgnored('/dl/photo.jpg'), false);
+  });
+
+  test('glob patterns do not crash (regression: new RegExp("*.tmp") threw)', () => {
+    const w = new FileWatcher(mockLogger(), { ignorePatterns: ['*.tmp', '*.crdownload'] });
+    assert.doesNotThrow(() => w._isIgnored('/dl/whatever.txt'));
   });
 });
 
