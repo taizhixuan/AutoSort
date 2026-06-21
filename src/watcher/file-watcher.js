@@ -26,7 +26,7 @@ class FileWatcher {
 
     const ignorePatterns = [
       /(^|[\\/])\./,
-      ...this.ignorePatterns.map(p => new RegExp(p)),
+      ...this.ignorePatterns.map((p) => new RegExp(p)),
       /\.part$/,
       /\.crdownload$/,
       /\.download$/,
@@ -110,7 +110,7 @@ class FileWatcher {
   async stop() {
     if (this.watcher) {
       this.logger.debug('Stopping watcher...');
-      
+
       for (const timer of this.debounceTimers.values()) {
         clearTimeout(timer);
       }

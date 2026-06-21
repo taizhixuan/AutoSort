@@ -2,10 +2,12 @@
  * Unit tests for AutoSort FileMover module
  */
 
-const { test, describe, beforeEach } = require('node:test');
+const { test, describe } = require('node:test');
 const assert = require('node:assert');
+const fs = require('fs').promises;
+const os = require('os');
+const path = require('path');
 const FileMover = require('../src/mover/file-mover');
-const Logger = require('../src/utils/logger');
 
 const createMockLogger = () => ({
   debug: () => {},
@@ -19,7 +21,7 @@ describe('FileMover', () => {
   test('should create FileMover instance', () => {
     const mockLogger = createMockLogger();
     const mover = new FileMover(mockLogger);
-    
+
     assert.ok(mover instanceof FileMover);
     assert.ok(mover.retryAttempts >= 1);
     assert.ok(mover.retryDelay >= 0);
@@ -31,7 +33,7 @@ describe('FileMover', () => {
       retryAttempts: 5,
       retryDelay: 2000
     });
-    
+
     assert.strictEqual(mover.retryAttempts, 5);
     assert.strictEqual(mover.retryDelay, 2000);
   });
@@ -39,13 +41,13 @@ describe('FileMover', () => {
   test('should return unique filename for existing file', async () => {
     const mockLogger = createMockLogger();
     const mover = new FileMover(mockLogger);
-    
+
     mover.exists = async (path) => {
       return path.includes('existing');
     };
-    
+
     const result = await mover.getUniqueFileName('/downloads/report.pdf');
-    
+
     assert.ok(result.includes('report'));
     assert.ok(result.endsWith('.pdf'));
   });
@@ -53,7 +55,7 @@ describe('FileMover', () => {
   test('should handle default values', () => {
     const mockLogger = createMockLogger();
     const mover = new FileMover(mockLogger);
-    
+
     assert.strictEqual(mover.retryAttempts, 3);
     assert.strictEqual(mover.retryDelay, 1000);
   });
@@ -61,9 +63,9 @@ describe('FileMover', () => {
   test('should handle file info errors gracefully', async () => {
     const mockLogger = createMockLogger();
     const mover = new FileMover(mockLogger);
-    
+
     const result = await mover.getFileInfo('/nonexistent/file.pdf');
-    
+
     assert.strictEqual(result, null);
   });
 
@@ -72,10 +74,10 @@ describe('FileMover', () => {
     const mover = new FileMover(mockLogger);
 
     mover.exists = async () => false;
-    
+
     const uniquePath1 = await mover.getUniqueFileName('/path/to/file.pdf');
     assert.ok(uniquePath1.endsWith('.pdf'));
-    
+
     const uniquePath2 = await mover.getUniqueFileName('relative/path/file.zip');
     assert.ok(uniquePath2.endsWith('.zip'));
   });
@@ -83,23 +85,40 @@ describe('FileMover', () => {
   test('should increment counter for duplicates', async () => {
     const mockLogger = createMockLogger();
     const mover = new FileMover(mockLogger);
-    let callCount = 0;
-    
-    mover.exists = async (path) => {
-      callCount++;
-      return !path.includes('(1)');
-    };
-    
-    const result = await mover.getUniqueFileName('/downloads/report.pdf');
-    
-    assert.ok(result.includes('(1)'));
-    assert.ok(callCount > 0);
+
+    // Real temp dir: getUniqueFileName now reads the directory once instead of
+    // probing with fs.access per conflict, so we assert the resulting name.
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'autosort-'));
+    try {
+      await fs.writeFile(path.join(tmpDir, 'report.pdf'), 'x');
+      await fs.writeFile(path.join(tmpDir, 'report(1).pdf'), 'x');
+
+      const result = await mover.getUniqueFileName(path.join(tmpDir, 'report.pdf'));
+
+      assert.strictEqual(path.basename(result), 'report(2).pdf');
+    } finally {
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test('should return original name when no conflict exists', async () => {
+    const mockLogger = createMockLogger();
+    const mover = new FileMover(mockLogger);
+
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'autosort-'));
+    try {
+      const target = path.join(tmpDir, 'fresh.pdf');
+      const result = await mover.getUniqueFileName(target);
+      assert.strictEqual(result, target);
+    } finally {
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    }
   });
 
   test('should detect cross-device errors', () => {
     const mockLogger = createMockLogger();
     const mover = new FileMover(mockLogger);
-    
+
     const error = { code: 'EXDEV' };
     assert.strictEqual(error.code, 'EXDEV');
   });
@@ -107,7 +126,7 @@ describe('FileMover', () => {
   test('should handle EBUSY errors', () => {
     const mockLogger = createMockLogger();
     const mover = new FileMover(mockLogger);
-    
+
     const error = { code: 'EBUSY' };
     assert.strictEqual(error.code, 'EBUSY');
   });
@@ -115,7 +134,7 @@ describe('FileMover', () => {
   test('should handle EPERM errors', () => {
     const mockLogger = createMockLogger();
     const mover = new FileMover(mockLogger);
-    
+
     const error = { code: 'EPERM' };
     assert.strictEqual(error.code, 'EPERM');
   });

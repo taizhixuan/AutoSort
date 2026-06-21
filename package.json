@@ -1,18 +1,27 @@
 {
-  "name": "autosort",
+  "name": "@taizhixuan/autosort",
   "version": "1.0.0",
-  "description": "Smart Downloads Organizer - A background Node.js service that automatically organizes your files",
+  "description": "Smart Downloads Organizer - automatically organize the files in any folder by type, name, size, or age",
   "main": "src/index.js",
   "bin": {
     "autosort": "src/cli.js"
   },
+  "files": [
+    "src/",
+    "autosort.config.example.json",
+    "README.md",
+    "SETUP.md",
+    "LICENSE"
+  ],
   "scripts": {
-    "start": "node src/main.js",
-    "dev": "node --watch src/index.js",
+    "start": "node src/cli.js start",
+    "organize": "node src/cli.js organize",
+    "dev": "node --watch src/cli.js start",
     "cli": "node src/cli.js",
     "test": "node --test tests/*.test.js",
     "lint": "eslint src/",
-    "format": "prettier --write \"src/**/*.js\" \"tests/**/*.js\""
+    "format": "prettier --write \"src/**/*.js\" \"tests/**/*.js\"",
+    "prepublishOnly": "npm test"
   },
   "keywords": [
     "file-organizer",
@@ -22,8 +31,11 @@
     "productivity-tool",
     "nodejs"
   ],
-  "author": "",
+  "author": "taizhixuan",
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "engines": {
     "node": ">=18.0.0"
   },
@@ -38,6 +50,10 @@
   },
   "repository": {
     "type": "git",
-    "url": ""
+    "url": "git+https://github.com/taizhixuan/AutoSort.git"
+  },
+  "homepage": "https://github.com/taizhixuan/AutoSort#readme",
+  "bugs": {
+    "url": "https://github.com/taizhixuan/AutoSort/issues"
   }
 }

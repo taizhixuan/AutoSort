@@ -1,5 +1,6 @@
 const fs = require('fs').promises;
 const path = require('path');
+const { normalizeExtension } = require('../utils/extension');
 
 const DEFAULT_CONFIG = {
   watchDir: '',
@@ -9,7 +10,12 @@ const DEFAULT_CONFIG = {
   retryAttempts: 3,
   retryDelay: 1000,
   logFile: null,
-  verbose: false
+  verbose: false,
+  recursive: false,
+  // Smarter rules (all optional).
+  patternRules: [],
+  sizeRules: [],
+  dateRules: []
 };
 
 const DEFAULT_RULES = {
@@ -92,39 +98,49 @@ class ConfigLoader {
     try {
       const content = await fs.readFile(configPath, 'utf-8');
       const loadedConfig = JSON.parse(content);
-      
+
       if (loadedConfig.watchDir) {
         this.config.watchDir = path.resolve(loadedConfig.watchDir);
       }
-      
+
       if (loadedConfig.rules) {
         this.rules = { ...DEFAULT_RULES, ...loadedConfig.rules };
       }
-      
+
       if (loadedConfig.unsortedFolder) {
         this.config.unsortedFolder = loadedConfig.unsortedFolder;
       }
-      
+
       if (loadedConfig.ignorePatterns) {
         this.config.ignorePatterns = loadedConfig.ignorePatterns;
       }
-      
+
       if (loadedConfig.retryAttempts !== undefined) {
         this.config.retryAttempts = loadedConfig.retryAttempts;
       }
-      
+
       if (loadedConfig.retryDelay !== undefined) {
         this.config.retryDelay = loadedConfig.retryDelay;
       }
-      
+
       if (loadedConfig.logFile) {
         this.config.logFile = path.resolve(loadedConfig.logFile);
       }
-      
+
       if (loadedConfig.verbose !== undefined) {
         this.config.verbose = loadedConfig.verbose;
       }
-      
+
+      if (loadedConfig.recursive !== undefined) {
+        this.config.recursive = loadedConfig.recursive;
+      }
+
+      for (const key of ['patternRules', 'sizeRules', 'dateRules']) {
+        if (Array.isArray(loadedConfig[key])) {
+          this.config[key] = loadedConfig[key];
+        }
+      }
+
       await this.logger.debug('Configuration loaded from', configPath);
     } catch (error) {
       if (error.code === 'ENOENT') {
@@ -144,7 +160,11 @@ class ConfigLoader {
       retryAttempts: this.config.retryAttempts,
       retryDelay: this.config.retryDelay,
       logFile: this.config.logFile || null,
-      verbose: this.config.verbose || false
+      verbose: this.config.verbose || false,
+      recursive: this.config.recursive || false,
+      patternRules: this.config.patternRules || [],
+      sizeRules: this.config.sizeRules || [],
+      dateRules: this.config.dateRules || []
     };
 
     await fs.writeFile(configPath, JSON.stringify(configContent, null, 2), 'utf-8');
@@ -153,7 +173,9 @@ class ConfigLoader {
 
   async validate() {
     if (!this.config.watchDir) {
-      throw new Error('Watch directory is not configured. Use --watch <directory> or set "watchDir" in config.');
+      throw new Error(
+        'Watch directory is not configured. Use --watch <directory> or set "watchDir" in config.'
+      );
     }
 
     try {
@@ -184,13 +206,11 @@ class ConfigLoader {
   }
 
   addRule(extension, targetFolder) {
-    const ext = extension.startsWith('.') ? extension.toLowerCase() : `.${extension.toLowerCase()}`;
-    this.rules[ext] = targetFolder;
+    this.rules[normalizeExtension(extension)] = targetFolder;
   }
 
   removeRule(extension) {
-    const ext = extension.startsWith('.') ? extension.toLowerCase() : `.${extension.toLowerCase()}`;
-    delete this.rules[ext];
+    delete this.rules[normalizeExtension(extension)];
   }
 
   getRuleCount() {
@@ -207,7 +227,10 @@ class ConfigLoader {
       const content = await fs.readFile(inputPath, 'utf-8');
       const importedRules = JSON.parse(content);
       this.rules = { ...DEFAULT_RULES, ...importedRules };
-      await this.logger.success(`Imported ${Object.keys(importedRules).length} rules from`, inputPath);
+      await this.logger.success(
+        `Imported ${Object.keys(importedRules).length} rules from`,
+        inputPath
+      );
     } catch (error) {
       throw new Error(`Failed to import rules: ${error.message}`);
     }

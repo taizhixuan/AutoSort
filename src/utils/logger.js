@@ -9,18 +9,23 @@ class Logger {
     this.logFile = options.logFile || null;
   }
 
+  /** Single canonical timestamp ("YYYY-MM-DD HH:MM:SS") for console and file. */
+  _timestamp() {
+    return new Date().toISOString().replace('T', ' ').substring(0, 19);
+  }
+
   async _writeToFile(message) {
     if (this.logFile) {
-      const timestamp = new Date().toISOString();
-      await fs.appendFile(this.logFile, `[${timestamp}] ${message}\n`);
+      await fs.appendFile(this.logFile, `[${this._timestamp()}] ${message}\n`);
     }
   }
 
   formatMessage(level, icon, color, message, ...args) {
-    const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
-    const formattedMessage = args.length > 0 
-      ? `${message} ${args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ')}`
-      : message;
+    const timestamp = this._timestamp();
+    const formattedMessage =
+      args.length > 0
+        ? `${message} ${args.map((a) => (typeof a === 'object' ? JSON.stringify(a) : a)).join(' ')}`
+        : message;
     return `${chalk.gray(`[${timestamp}]`)} ${color(`[${level}]`)} ${icon} ${formattedMessage}`;
   }
 
@@ -59,11 +64,42 @@ class Logger {
   }
 
   async logMove(filePath, destPath) {
+    if (this.silent) {
+      await this._writeToFile(`[MOVED] ${filePath} -> ${destPath}`);
+      return;
+    }
     const fileName = path.basename(filePath);
     const destDir = path.basename(path.dirname(destPath));
     const formatted = this.formatMessage('MOVED', '→', chalk.cyan, `${fileName} → ${destDir}/`);
     console.log(formatted);
     await this._writeToFile(`[MOVED] ${filePath} -> ${destPath}`);
+  }
+
+  /**
+   * Print an end-of-run summary.
+   * @param {{processed:number, moved:number, failed:number, skipped?:number,
+   *          dryRun?:boolean, byFolder?: Record<string, number>}} stats
+   */
+  summary(stats) {
+    if (this.silent) return;
+    const title = stats.dryRun ? 'Dry-run summary (no files changed)' : 'Summary';
+    console.log('\n' + chalk.bold(title));
+    console.log(chalk.gray('─'.repeat(40)));
+    console.log(`${chalk.cyan('Processed:')} ${stats.processed}`);
+    console.log(`${chalk.green(stats.dryRun ? 'Would move:' : 'Moved:')} ${stats.moved}`);
+    if (stats.skipped) {
+      console.log(`${chalk.yellow('Skipped:')}   ${stats.skipped}`);
+    }
+    if (stats.failed) {
+      console.log(`${chalk.red('Failed:')}    ${stats.failed}`);
+    }
+    if (stats.byFolder && Object.keys(stats.byFolder).length > 0) {
+      console.log(chalk.gray('─'.repeat(40)));
+      for (const [folder, count] of Object.entries(stats.byFolder).sort((a, b) => b[1] - a[1])) {
+        console.log(`  ${chalk.cyan(folder)}: ${count}`);
+      }
+    }
+    console.log(chalk.gray('─'.repeat(40)));
   }
 
   async watchStart(watchDir, rulesCount) {

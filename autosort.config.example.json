@@ -2,9 +2,23 @@
   "watchDir": "C:/Users/YourUsername/Downloads",
   "rules": {},
   "unsortedFolder": "Unsorted",
+  "recursive": false,
   "ignorePatterns": [
-    "^\\.DS_Store$",
-    "^Thumbs\\.db$"
+    ".DS_Store",
+    "Thumbs.db",
+    "*.tmp",
+    "*.crdownload",
+    "*.part"
+  ],
+  "patternRules": [
+    { "match": "Invoice*", "type": "glob", "folder": "Finance/Invoices" },
+    { "match": "Screenshot*", "type": "glob", "folder": "Images/Screenshots" }
+  ],
+  "sizeRules": [
+    { "minSizeMB": 1024, "folder": "Large Files" }
+  ],
+  "dateRules": [
+    { "olderThanDays": 365, "folder": "Archive" }
   ],
   "retryAttempts": 3,
   "retryDelay": 1000,
